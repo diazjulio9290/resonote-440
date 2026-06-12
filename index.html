@@ -497,12 +497,17 @@
   function detectPitch(buf, sampleRate) {
     var SIZE = buf.length;
 
-    var rms = 0;
-    for (var i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
+    var rms = 0, peak = 0;
+    for (var i = 0; i < SIZE; i++) {
+      rms += buf[i] * buf[i];
+      var v = Math.abs(buf[i]);
+      if (v > peak) peak = v;
+    }
     rms = Math.sqrt(rms / SIZE);
-    if (rms < 0.008) return -1; // too quiet
+    if (rms < 0.004) return -1; // too quiet
 
-    var thres = 0.2, r1 = 0, r2 = SIZE - 1;
+    // trim threshold scales with the signal so a decaying pluck still tracks
+    var thres = peak * 0.3, r1 = 0, r2 = SIZE - 1;
     for (i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) { r1 = i; } else break;
     for (i = 1; i < SIZE / 2; i++) if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; } else break;
     var sliced = buf.slice(r1, r2);
@@ -633,6 +638,9 @@
   var buf = null;
   var recent = [];
 
+  var HOLD_MS = 4000; // keep the last note on screen after the string fades
+  var lastHeard = 0;
+
   function loop() {
     analyser.getFloatTimeDomainData(buf);
     var freq = detectPitch(buf, audioCtx.sampleRate);
@@ -642,9 +650,10 @@
       if (recent.length > 5) recent.shift();
       var sorted = recent.slice().sort(function (a, b) { return a - b; });
       renderReading(sorted[Math.floor(sorted.length / 2)]);
+      lastHeard = performance.now();
     } else {
       if (recent.length) recent.shift();
-      if (!recent.length) renderSilence();
+      if (!recent.length && performance.now() - lastHeard > HOLD_MS) renderSilence();
     }
     rafId = requestAnimationFrame(loop);
   }
