@@ -3,732 +3,1109 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#07090d">
-<title>Resonote 440 — Chromatic Tuner</title>
-<!-- 7/14-segment LED fonts (falls back to monospace if offline) -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dseg@0.46.0/css/dseg.css">
+<meta name="theme-color" content="#101114">
+<meta name="description" content="Resonote 440 is a free chromatic tuner that runs in your browser. Your sound never leaves your device.">
+<title>Resonote 440: chromatic tuner</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23a8cad8'/%3E%3Crect x='6' y='6' width='20' height='11' rx='2' fill='%2306080a'/%3E%3Ccircle cx='16' cy='11.5' r='2.5' fill='%23ffb547'/%3E%3Ccircle cx='16' cy='23' r='4' fill='%23dfe4e8' stroke='%230e2a3b'/%3E%3C/svg%3E">
+<!-- Gear-style lettering. Falls back to a system font if offline. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&display=swap">
 <style>
   :root {
-    --bg: #07090d;
-    --metal-hi: #3a4150;
-    --metal: #262c38;
-    --metal-lo: #14181f;
-    --plate: #0c0f14;
-    --led-amber: #ffb347;
-    --led-red: #ff4d4d;
-    --led-green: #3dffa0;
-    --led-off: #2a2218;
-    --text: #c9d2e0;
-    --muted: #6b7385;
-    --accent: #5eead4;
-    --seg: "DSEG14-Classic", "Consolas", monospace;
-    --seg7: "DSEG7-Classic", "Consolas", monospace;
+    --floor: #101114;
+    --paint: #a8cad8;            /* enclosure paint. Change this one value to repaint the pedal. */
+    --paint-hi: color-mix(in srgb, var(--paint), white 42%);
+    --paint-lo: color-mix(in srgb, var(--paint), #1d4257 26%);
+    --ink: #0e2a3b;              /* printed lettering on the enclosure */
+    --glass: #06080a;
+    --amber: #ffb547;
+    --green: #5dffae;
+    --red: #ff4a3d;
+    --legend: "Michroma", "Eurostile Extended", "Eurostile", "Segoe UI", system-ui, sans-serif;
+    --body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --dot: 13px;                 /* size of one light in the big note display */
+    --switch: 96px;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; }
+  html { height: 100%; }
   body {
-    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    min-height: 100%;
+    min-height: 100dvh;
+    font-family: var(--body);
+    color: #b9bec8;
     background:
-      radial-gradient(1100px 500px at 50% -10%, rgba(94, 234, 212, 0.05), transparent 60%),
-      radial-gradient(800px 600px at 50% 115%, rgba(255, 179, 71, 0.05), transparent 55%),
-      var(--bg);
-    color: var(--text);
+      radial-gradient(ellipse 75% 55% at 50% 34%, #2b2d35 0%, #17181c 55%, var(--floor) 100%)
+      var(--floor);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 100dvh;
-    padding: 16px 12px calc(16px + env(safe-area-inset-bottom));
+    padding: 18px 12px calc(18px + env(safe-area-inset-bottom));
+    -webkit-user-select: none;
     user-select: none;
   }
+  button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip-path: inset(50%); white-space: nowrap;
+  }
 
-  /* ================= PEDAL ENCLOSURE ================= */
+  /* ================= ENCLOSURE ================= */
   .pedal {
     position: relative;
     width: 100%;
     max-width: 400px;
-    border-radius: 22px;
-    padding: 20px 18px 24px;
+    padding: 20px 20px 18px;
+    border-radius: 24px;
+    color: var(--ink);
     background:
-      /* brushed metal lines */
-      repeating-linear-gradient(92deg, rgba(255,255,255,0.022) 0 1px, transparent 1px 3px),
-      linear-gradient(160deg, var(--metal-hi) 0%, var(--metal) 38%, var(--metal-lo) 100%);
-    border: 1px solid rgba(255,255,255,0.10);
+      linear-gradient(115deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0) 26%),
+      linear-gradient(172deg, var(--paint-hi) 0%, var(--paint) 34%, var(--paint-lo) 100%);
     box-shadow:
-      inset 0 1px 0 rgba(255,255,255,0.18),
-      inset 0 -2px 6px rgba(0,0,0,0.6),
-      0 24px 60px rgba(0,0,0,0.65),
-      0 4px 14px rgba(0,0,0,0.5);
+      inset 0 2px 0 rgba(255,255,255,0.65),
+      inset 0 -4px 7px rgba(14,42,59,0.38),
+      inset 3px 0 5px rgba(255,255,255,0.14),
+      inset -3px 0 5px rgba(14,42,59,0.14),
+      0 34px 60px rgba(0,0,0,0.6),
+      0 6px 14px rgba(0,0,0,0.5);
   }
-  /* corner screws */
   .screw {
     position: absolute;
-    width: 16px; height: 16px;
+    width: 15px; height: 15px;
     border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #79839a, #2c3340 60%, #10141b);
-    box-shadow: inset 0 -1px 2px rgba(0,0,0,0.8), 0 1px 1px rgba(255,255,255,0.12);
+    background: radial-gradient(circle at 34% 30%, #ffffff, #b9c2c8 45%, #6f7a82 100%);
+    box-shadow: 0 1px 2px rgba(14,42,59,0.55), inset 0 -1px 1px rgba(0,0,0,0.3);
   }
   .screw::after {
     content: "";
     position: absolute;
-    left: 2px; right: 2px; top: 50%;
+    left: 3px; right: 3px; top: 50%;
     height: 2px; margin-top: -1px;
-    background: rgba(0,0,0,0.7);
     border-radius: 2px;
+    background: rgba(20,30,36,0.75);
   }
-  .screw.tl { top: 9px; left: 9px; transform: rotate(24deg); }
-  .screw.tr { top: 9px; right: 9px; transform: rotate(-37deg); }
-  .screw.bl { bottom: 9px; left: 9px; transform: rotate(-72deg); }
-  .screw.br { bottom: 9px; right: 9px; transform: rotate(58deg); }
+  .screw.tl { top: 10px; left: 10px; transform: rotate(24deg); }
+  .screw.tr { top: 10px; right: 10px; transform: rotate(-37deg); }
+  .screw.bl { bottom: 10px; left: 10px; transform: rotate(-72deg); }
+  .screw.br { bottom: 10px; right: 10px; transform: rotate(58deg); }
 
-  /* ================= BRAND PLATE ================= */
-  .brand-plate { text-align: center; margin-bottom: 14px; }
-  .brand {
-    font-size: 1.45rem;
-    font-weight: 800;
-    letter-spacing: 3px;
-    color: #e8edf6;
-    text-shadow: 0 1px 0 rgba(0,0,0,0.8), 0 0 18px rgba(94,234,212,0.18);
+  .mark { text-align: center; margin-bottom: 14px; }
+  .wordmark {
+    font-family: var(--legend);
+    font-weight: 400;
+    font-size: 1.32rem;
+    line-height: 1.1;
+    letter-spacing: 0.06em;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.4);
   }
-  .brand span { color: var(--accent); }
-  .brand-sub {
-    margin-top: 3px;
-    font-size: 0.58rem;
-    letter-spacing: 4px;
-    color: var(--muted);
-    text-transform: uppercase;
+  .mark-sub {
+    margin-top: 5px;
+    font-family: var(--legend);
+    font-size: 0.64rem;
+    letter-spacing: 0.22em;
+    opacity: 0.78;
   }
 
-  /* ================= DISPLAY WINDOW ================= */
-  .display {
-    background:
-      radial-gradient(120% 90% at 50% 0%, rgba(255,179,71,0.05), transparent 55%),
-      linear-gradient(180deg, #05060a, #0a0c12 60%, #05060a);
+  /* ================= DISPLAY GLASS ================= */
+  .glass {
+    --led: var(--amber);
+    position: relative;
+    padding: 14px 14px 12px;
     border-radius: 14px;
-    border: 1px solid rgba(0,0,0,0.9);
-    box-shadow:
-      inset 0 4px 14px rgba(0,0,0,0.9),
-      inset 0 -1px 0 rgba(255,255,255,0.04),
-      0 1px 0 rgba(255,255,255,0.07);
-    padding: 14px 12px 12px;
-  }
-
-  /* LED ladder */
-  .led-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 2px;
-    margin-bottom: 4px;
-  }
-  .led {
-    width: 9px; height: 9px;
-    border-radius: 50%;
-    background: var(--led-off);
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
-    transition: background 0.06s, box-shadow 0.06s;
-  }
-  .led.center { width: 11px; height: 11px; }
-  .led.on-red    { background: var(--led-red);   box-shadow: 0 0 10px var(--led-red),   0 0 3px var(--led-red); }
-  .led.on-amber  { background: var(--led-amber); box-shadow: 0 0 10px var(--led-amber), 0 0 3px var(--led-amber); }
-  .led.on-green  { background: var(--led-green); box-shadow: 0 0 12px var(--led-green), 0 0 4px var(--led-green); }
-  .led-scale {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.5rem;
-    color: var(--muted);
-    letter-spacing: 1px;
-    padding: 0 1px;
-    margin-bottom: 10px;
-  }
-
-  /* note area: flat arrow | big segment note | sharp arrow */
-  .note-area {
-    display: grid;
-    grid-template-columns: 36px 1fr 36px;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 10px;
-  }
-  .tune-arrow {
-    width: 0; height: 0;
-    margin: 0 auto;
-    border-top: 13px solid transparent;
-    border-bottom: 13px solid transparent;
-    opacity: 0.18;
-    transition: opacity 0.08s, filter 0.08s;
-  }
-  .tune-arrow.left  { border-right: 20px solid var(--led-red); }
-  .tune-arrow.right { border-left: 20px solid var(--led-red); }
-  .tune-arrow.lit { opacity: 1; filter: drop-shadow(0 0 8px var(--led-red)); }
-
-  .note-window {
-    position: relative;
-    text-align: center;
-    padding: 6px 0 2px;
-  }
-  .seg-ghost, .seg-note {
-    font-family: var(--seg);
-    font-size: 4.6rem;
-    line-height: 1;
-    letter-spacing: 4px;
-  }
-  .seg-ghost {
-    color: rgba(255, 179, 71, 0.07);
-    position: absolute;
-    left: 0; right: 0; top: 6px;
-    pointer-events: none;
-  }
-  .seg-note {
-    position: relative;
-    color: var(--led-amber);
-    text-shadow: 0 0 22px rgba(255,179,71,0.55), 0 0 6px rgba(255,179,71,0.8);
-    transition: color 0.12s, text-shadow 0.12s;
-  }
-  .note-window.in-tune .seg-note {
-    color: var(--led-green);
-    text-shadow: 0 0 24px rgba(61,255,160,0.6), 0 0 7px rgba(61,255,160,0.9);
-  }
-  .note-flags {
-    position: absolute;
-    right: 4px; top: 4px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    align-items: center;
-  }
-  .flag-led {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: rgba(255,179,71,0.14);
-    line-height: 1;
-    transition: color 0.1s, text-shadow 0.1s;
-  }
-  .flag-led.lit { color: var(--led-amber); text-shadow: 0 0 10px rgba(255,179,71,0.8); }
-  .octave-led {
-    position: absolute;
-    left: 6px; bottom: 2px;
-    font-family: var(--seg7);
-    font-size: 1.15rem;
-    color: rgba(255,179,71,0.85);
-    text-shadow: 0 0 8px rgba(255,179,71,0.5);
-  }
-  .hint-line {
-    text-align: center;
-    font-size: 0.68rem;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--muted);
-    min-height: 1.2em;
-    margin-bottom: 10px;
-    transition: color 0.12s;
-  }
-  .hint-line.good { color: var(--led-green); text-shadow: 0 0 8px rgba(61,255,160,0.5); }
-
-  /* mini segment displays */
-  .mini-row { display: flex; gap: 8px; }
-  .mini {
-    flex: 1;
-    background: #04050a;
-    border-radius: 8px;
-    border: 1px solid rgba(0,0,0,0.9);
-    box-shadow: inset 0 2px 8px rgba(0,0,0,0.9);
-    padding: 7px 8px 5px;
-    text-align: center;
-  }
-  .mini .val {
-    font-family: var(--seg7);
-    font-size: 0.95rem;
-    color: var(--led-amber);
-    text-shadow: 0 0 8px rgba(255,179,71,0.45);
-    white-space: nowrap;
-  }
-  .mini .lbl {
-    font-size: 0.5rem;
-    letter-spacing: 2px;
-    color: var(--muted);
-    text-transform: uppercase;
-    margin-top: 3px;
-  }
-
-  /* ================= STRING LEDS ================= */
-  .strings {
-    display: flex;
-    justify-content: space-between;
-    gap: 6px;
-    margin: 14px 2px 0;
-  }
-  .string-chip {
-    flex: 1;
-    text-align: center;
-    padding: 7px 0 6px;
-    border-radius: 9px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.25));
-    border: 1px solid rgba(0,0,0,0.55);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.07);
-    font-weight: 700;
-    font-size: 0.85rem;
-    color: var(--text);
-  }
-  .string-chip small { display: block; font-size: 0.52rem; color: var(--muted); letter-spacing: 1px; margin-top: 1px; }
-  .string-chip .dot {
-    display: block;
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    margin: 4px auto 0;
-    background: var(--led-off);
-    box-shadow: inset 0 1px 1px rgba(0,0,0,0.8);
-    transition: background 0.1s, box-shadow 0.1s;
-  }
-  .string-chip.active .dot { background: var(--led-green); box-shadow: 0 0 8px var(--led-green); }
-  .string-chip.active { color: #fff; }
-
-  /* ================= CONTROL ROW ================= */
-  .control-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin: 16px 4px 6px;
-  }
-  .calib {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .calib .knob-btn {
-    width: 32px; height: 32px;
-    border-radius: 50%;
-    border: 1px solid rgba(0,0,0,0.7);
-    background: radial-gradient(circle at 35% 30%, #4a5366, #232936 65%, #12151c);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.18);
-    color: #dfe5ef;
-    font-size: 1.05rem;
-    font-weight: 700;
-    font-family: inherit;
-    cursor: pointer;
-  }
-  .calib .knob-btn:active { transform: translateY(1px); box-shadow: 0 1px 2px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.12); }
-  .calib-display {
-    background: #04050a;
-    border-radius: 7px;
-    border: 1px solid rgba(0,0,0,0.9);
-    box-shadow: inset 0 2px 6px rgba(0,0,0,0.9);
-    padding: 5px 9px 3px;
-    text-align: center;
-  }
-  .calib-display .val {
-    font-family: var(--seg7);
-    font-size: 0.95rem;
-    color: var(--led-amber);
-    text-shadow: 0 0 7px rgba(255,179,71,0.45);
-  }
-  .calib-display .lbl { font-size: 0.46rem; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
-
-  .power {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-  }
-  .power-led {
-    width: 13px; height: 13px;
-    border-radius: 50%;
-    background: #3a1212;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.9);
-    transition: background 0.12s, box-shadow 0.12s;
-  }
-  .power-led.on {
-    background: var(--led-red);
-    box-shadow: 0 0 14px var(--led-red), 0 0 4px var(--led-red);
-    animation: pulse 1.6s ease-in-out infinite;
-  }
-  @keyframes pulse { 50% { box-shadow: 0 0 7px var(--led-red), 0 0 2px var(--led-red); } }
-  .power .lbl { font-size: 0.5rem; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
-
-  /* ================= FOOTSWITCH ================= */
-  .foot-zone { display: flex; flex-direction: column; align-items: center; margin-top: 12px; }
-  .footswitch {
-    width: 92px; height: 92px;
-    border-radius: 50%;
-    border: none;
-    cursor: pointer;
+    color: var(--led);
     background:
-      radial-gradient(circle at 50% 38%, #5b6478, #333b4a 55%, #181c25 80%);
+      linear-gradient(128deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0) 30%),
+      radial-gradient(120% 80% at 50% 0%, #11151a, var(--glass) 70%);
     box-shadow:
-      0 0 0 7px #11141b,
-      0 0 0 9px rgba(255,255,255,0.07),
-      0 10px 22px rgba(0,0,0,0.7),
-      inset 0 2px 3px rgba(255,255,255,0.25),
-      inset 0 -6px 12px rgba(0,0,0,0.55);
+      0 0 0 2px #1a2228,
+      0 0 0 3px rgba(255,255,255,0.5),
+      0 2px 3px 3px rgba(14,42,59,0.3),
+      inset 0 5px 16px rgba(0,0,0,0.95);
+  }
+  .glass[data-tune="true"] { --led: var(--green); }
+
+  /* cents meter */
+  .meter {
+    display: grid;
+    grid-template-columns: 18px 1fr 18px;
+    column-gap: 6px;
+  }
+  .meter-end {
+    height: 26px;
+    font-family: "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", var(--body);
+    font-size: 1.15rem;
+    line-height: 26px;
+    text-align: center;
+    opacity: 0.22;
+    transition: opacity 0.12s;
+  }
+  .meter-end.lit { opacity: 1; text-shadow: 0 0 10px var(--led); }
+  .glass[data-mode="hold"] .meter-end.lit { opacity: 0.4; }
+  .scale { position: relative; height: 26px; }
+  .scale .tick {
+    position: absolute;
+    bottom: 0;
+    width: 2px; margin-left: -1px;
+    height: 34%;
+    border-radius: 1px;
+    background: var(--amber);
+    opacity: 0.32;
+  }
+  .scale .tick.mid { height: 62%; opacity: 0.5; }
+  .scale .tick.zero { height: 100%; opacity: 0.75; }
+  .scale .zone {            /* the "in tune" window, 3 cents either side */
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 47%; width: 6%;
+    border-radius: 3px;
+    background: var(--green);
+    opacity: 0.1;
+    transition: opacity 0.12s;
+  }
+  .glass[data-tune="true"] .zone { opacity: 0.34; }
+  .pointer {
+    position: absolute;
+    top: -3px; bottom: -3px;
+    left: 50%;
+    width: 4px; margin-left: -2px;
+    border-radius: 2px;
+    background: var(--led);
+    box-shadow: 0 0 10px var(--led), 0 0 3px var(--led);
+    opacity: 0;
+    will-change: transform;
+    transition: opacity 0.15s;
+  }
+  .glass[data-mode="live"] .pointer { opacity: 1; }
+  .glass[data-mode="hold"] .pointer { opacity: 0.4; }
+  .scale-nums {
+    grid-column: 2;
+    display: flex;
+    justify-content: space-between;
+    margin: 5px -14px 0;
+    font-family: var(--legend);
+    font-size: 0.6rem;
+    color: #a48a5c;
+  }
+  .scale-nums span { width: 28px; text-align: center; }
+
+  /* note display: a grid of lights, like a pedal tuner's LED matrix */
+  .note {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    column-gap: 12px;
+    margin: 14px 0 12px;
+    transition: opacity 0.15s;
+  }
+  .glass[data-mode="hold"] .note { opacity: 0.45; }
+  .mx { display: grid; grid-template-columns: repeat(5, var(--d)); gap: var(--g); }
+  .mx i {
+    width: var(--d); height: var(--d);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--led) 8%, transparent);
+    transition: background-color 0.1s;
+  }
+  .mx i.on {
+    background: var(--led);
+    box-shadow: 0 0 calc(var(--d) * 0.75) color-mix(in srgb, var(--led) 65%, transparent);
+  }
+  .mx.big { --d: var(--dot); --g: calc(var(--dot) * 0.3); grid-column: 2; }
+  .mx.small { --d: 4px; --g: 2px; }
+  .note-side { display: grid; row-gap: 10px; justify-content: start; }
+
+  /* strobe band: drifts left when flat, right when sharp, stands still when in tune */
+  .strobe {
+    height: 14px;
+    overflow: hidden;
+    border-radius: 7px;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+    opacity: 0.14;
+    transition: opacity 0.2s;
+  }
+  .glass[data-mode="live"] .strobe { opacity: 0.9; }
+  .strobe-bars {
+    height: 100%;
+    margin: 0 -44px;
+    background: repeating-linear-gradient(90deg, var(--led) 0 9px, transparent 9px 22px);
+    will-change: transform;
+    transform: skewX(-24deg);
+  }
+
+  .hint {
+    margin-top: 11px;
+    min-height: 1.3em;
+    text-align: center;
+    font-family: var(--legend);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    line-height: 1.3;
+  }
+  .glass:not([data-mode="live"]) .hint { color: #c9a56a; }
+
+  .reads {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,181,71,0.16);
+  }
+  .reads > div { text-align: center; }
+  .reads > div + div { border-left: 1px solid rgba(255,181,71,0.16); }
+  .reads dt { font-size: 0.7rem; color: #a48a5c; }
+  .reads dd {
+    margin-top: 3px;
+    font-family: var(--legend);
+    font-size: 0.86rem;
+    white-space: nowrap;
+    color: var(--amber);
+    transition: opacity 0.15s;
+  }
+  .glass[data-mode="hold"] .reads dd { opacity: 0.45; }
+  .reads dd .dg { display: inline-block; width: 0.94em; text-align: center; }
+  .reads dd .pt { display: inline-block; width: 0.42em; text-align: center; }
+
+  /* ================= STRINGS ================= */
+  .strings { margin-top: 16px; }
+  .string-row { display: flex; justify-content: space-between; gap: 6px; }
+  .string {
     position: relative;
+    flex: 0 1 46px;
+    min-width: 0;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 2px solid var(--ink);
+    background: rgba(255,255,255,0.16);
+    font-family: var(--legend);
+    font-size: 0.86rem;
+    line-height: 1;
+    transition: background-color 0.12s, color 0.12s;
+  }
+  .string small {
+    position: absolute;
+    right: 14%; bottom: 9%;
+    font-family: var(--body);
+    font-size: 0.6rem;
+    font-weight: 600;
+    opacity: 0.75;
+  }
+  .string .lamp {
+    position: absolute;
+    left: 50%; top: -5px;
+    width: 8px; height: 8px; margin-left: -4px;
+    border-radius: 50%;
+    background: #37474f;
+    box-shadow: 0 0 0 2px var(--paint), inset 0 1px 1px rgba(0,0,0,0.6);
+    transition: background-color 0.1s, box-shadow 0.1s;
+  }
+  .string.heard .lamp {
+    background: var(--green);
+    box-shadow: 0 0 0 2px var(--paint), 0 0 9px 2px var(--green);
+  }
+  .string[aria-pressed="true"] { background: var(--ink); color: var(--paint-hi); }
+  .string:active { transform: translateY(1px); }
+  .strings-note {
+    margin-top: 9px;
+    min-height: 1.35em;
+    text-align: center;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    opacity: 0.86;
+  }
+
+  /* ================= DECK: A4 stepper, footswitch, mic lamp ================= */
+  .deck {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    margin-top: 12px;
+  }
+  .calib { justify-self: center; display: grid; justify-items: center; row-gap: 5px; }
+  .step {
+    width: 40px; height: 34px;
+    border-radius: 10px;
+    border: 2px solid var(--ink);
+    background: rgba(255,255,255,0.16);
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .step:active { transform: translateY(1px); background: rgba(255,255,255,0.3); }
+  .calib-window {
+    min-width: 62px;
+    padding: 5px 7px 4px;
+    border-radius: 7px;
+    text-align: center;
+    font-family: var(--legend);
+    font-size: 0.8rem;
+    color: var(--amber);
+    background: var(--glass);
+    box-shadow: 0 0 0 2px #1a2228, inset 0 2px 6px rgba(0,0,0,0.9);
+  }
+  .deck-label {
+    font-family: var(--legend);
+    font-size: 0.64rem;
+    letter-spacing: 0.08em;
+  }
+
+  .foot { display: grid; justify-items: center; row-gap: 9px; }
+  .footswitch {
+    position: relative;
+    width: var(--switch); height: var(--switch);
+    border: none;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 50% 30%, #ffffff 0%, #d7dde1 22%, #8d989f 62%, #58636b 100%);
+    box-shadow:
+      0 0 0 6px #1a2228,
+      0 0 0 8px rgba(255,255,255,0.55),
+      0 10px 16px 6px rgba(14,42,59,0.45),
+      inset 0 3px 3px rgba(255,255,255,0.9),
+      inset 0 -8px 12px rgba(0,0,0,0.35);
     transition: transform 0.06s, box-shadow 0.06s;
   }
   .footswitch::after {
     content: "";
     position: absolute;
-    inset: 16px;
+    inset: 17%;
     border-radius: 50%;
-    border: 1px dashed rgba(255,255,255,0.14);
+    border: 1px solid rgba(20,30,36,0.22);
+    box-shadow: inset 0 1px 2px rgba(255,255,255,0.7);
   }
-  .footswitch:active, .footswitch.listening {
+  .footswitch:active, .footswitch.down {
     transform: translateY(3px);
     box-shadow:
-      0 0 0 7px #11141b,
-      0 0 0 9px rgba(255,255,255,0.07),
-      0 4px 10px rgba(0,0,0,0.7),
-      inset 0 2px 3px rgba(255,255,255,0.15),
-      inset 0 -3px 8px rgba(0,0,0,0.6);
+      0 0 0 6px #1a2228,
+      0 0 0 8px rgba(255,255,255,0.55),
+      0 4px 8px 4px rgba(14,42,59,0.45),
+      inset 0 2px 3px rgba(255,255,255,0.7),
+      inset 0 -5px 10px rgba(0,0,0,0.42);
   }
-  .foot-label {
-    margin-top: 9px;
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 3px;
-    color: var(--muted);
-    text-transform: uppercase;
+  .foot-label { font-family: var(--legend); font-size: 0.8rem; letter-spacing: 0.1em; }
+
+  .mic { justify-self: center; display: grid; justify-items: center; row-gap: 8px; }
+  .jewel {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #7a3a35, #3d1512 70%);
+    box-shadow: 0 0 0 3px #1a2228, 0 0 0 4px rgba(255,255,255,0.5);
+    transition: background 0.12s, box-shadow 0.12s;
+  }
+  .jewel.on {
+    background: radial-gradient(circle at 35% 30%, #ffd2c9, var(--red) 55%, #b3170c);
+    box-shadow: 0 0 0 3px #1a2228, 0 0 0 4px rgba(255,255,255,0.5), 0 0 16px 5px rgba(255,74,61,0.75);
   }
 
+  /* keyboard focus */
+  .pedal button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  .footswitch:focus-visible { outline-offset: 11px; }
+
+  /* ================= BELOW THE PEDAL ================= */
   .status {
-    margin-top: 13px;
+    max-width: 380px;
+    min-height: 2.9em;
+    margin-top: 18px;
+    text-align: center;
+    font-size: 0.86rem;
+    line-height: 1.45;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  .status.error { color: #ffa89c; }
+  footer {
+    margin-top: 10px;
     text-align: center;
     font-size: 0.74rem;
     line-height: 1.5;
-    color: var(--muted);
-    min-height: 2.3em;
+    color: #7f8591;
   }
-  .status.error { color: #ff8585; }
 
-  footer { margin-top: 16px; font-size: 0.62rem; color: var(--muted); opacity: 0.6; letter-spacing: 1px; }
-
-  @media (max-width: 360px) {
-    .seg-ghost, .seg-note { font-size: 3.8rem; }
-    .footswitch { width: 80px; height: 80px; }
+  @media (max-width: 350px), (max-height: 720px) {
+    :root { --dot: 11px; --switch: 84px; }
+    .pedal { padding: 16px 16px 14px; }
+    .mark { margin-bottom: 11px; }
+    .note { margin: 11px 0 10px; }
+    .reads dd { font-size: 0.76rem; }
+    .string { font-size: 0.74rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .strobe { display: none; }
+    * { transition: none !important; }
   }
 </style>
 </head>
 <body>
 
-<div class="pedal">
-  <div class="screw tl"></div><div class="screw tr"></div>
-  <div class="screw bl"></div><div class="screw br"></div>
+<main class="pedal">
+  <i class="screw tl"></i><i class="screw tr"></i>
+  <i class="screw bl"></i><i class="screw br"></i>
 
-  <div class="brand-plate">
-    <div class="brand">RESONOTE <span>440</span></div>
-    <div class="brand-sub">Chromatic Tuner · Stage Series</div>
-  </div>
+  <header class="mark">
+    <h1 class="wordmark">Resonote 440</h1>
+    <p class="mark-sub">Chromatic tuner</p>
+  </header>
 
-  <div class="display">
-    <div class="led-row" id="ledRow"></div>
-    <div class="led-scale"><span>-50</span><span>-25</span><span>0</span><span>+25</span><span>+50</span></div>
-
-    <div class="note-area">
-      <div class="tune-arrow left" id="flatArrow"></div>
-      <div class="note-window" id="noteWindow">
-        <span class="seg-ghost">8</span>
-        <span class="seg-note" id="noteName">-</span>
-        <span class="octave-led" id="octaveLed"></span>
-        <div class="note-flags">
-          <span class="flag-led" id="sharpLed">♯</span>
-        </div>
+  <section class="glass" id="glass" data-mode="off" data-tune="false" aria-label="Tuner display">
+    <div class="meter" aria-hidden="true">
+      <span class="meter-end" id="flatEnd">♭</span>
+      <div class="scale" id="scale">
+        <div class="zone"></div>
+        <div class="pointer" id="pointer"></div>
       </div>
-      <div class="tune-arrow right" id="sharpArrow"></div>
+      <span class="meter-end" id="sharpEnd">♯</span>
+      <div class="scale-nums"><span>−50</span><span>−25</span><span>0</span><span>+25</span><span>+50</span></div>
     </div>
 
-    <div class="hint-line" id="hintLine">Press the footswitch to start</div>
-
-    <div class="mini-row">
-      <div class="mini"><div class="val" id="freqVal">---.-</div><div class="lbl">Pitch Hz</div></div>
-      <div class="mini"><div class="val" id="targetVal">---.-</div><div class="lbl">Target Hz</div></div>
-      <div class="mini"><div class="val" id="centsVal">--</div><div class="lbl">Cents</div></div>
+    <div class="note" aria-hidden="true">
+      <div class="mx big" id="mxNote"></div>
+      <div class="note-side">
+        <div class="mx small" id="mxSharp"></div>
+        <div class="mx small" id="mxOctave"></div>
+      </div>
     </div>
-  </div>
 
-  <div class="strings" id="strings"></div>
+    <div class="strobe" aria-hidden="true"><div class="strobe-bars" id="strobeBars"></div></div>
 
-  <div class="control-row">
+    <p class="hint" id="hint">Tap Start to tune</p>
+
+    <dl class="reads">
+      <div><dt>Pitch Hz</dt><dd id="freqVal"></dd></div>
+      <div><dt>Target Hz</dt><dd id="targetVal"></dd></div>
+      <div><dt>Cents off</dt><dd id="centsVal"></dd></div>
+    </dl>
+    <p class="sr-only" id="spoken" aria-live="polite"></p>
+  </section>
+
+  <section class="strings" aria-label="Guitar strings">
+    <div class="string-row" id="strings"></div>
+    <p class="strings-note" id="stringsNote">Tap a string to lock the tuner onto it.</p>
+  </section>
+
+  <section class="deck">
     <div class="calib">
-      <button class="knob-btn" id="a4Down" aria-label="Lower A4 calibration">−</button>
-      <div class="calib-display">
-        <div class="val" id="a4Value">440</div>
-        <div class="lbl">A4 · Hz</div>
-      </div>
-      <button class="knob-btn" id="a4Up" aria-label="Raise A4 calibration">+</button>
+      <button class="step" id="a4Up" aria-label="Raise the A4 reference pitch">+</button>
+      <div class="calib-window" id="a4Value" aria-live="polite">440</div>
+      <button class="step" id="a4Down" aria-label="Lower the A4 reference pitch">−</button>
+      <span class="deck-label">A4 Hz</span>
     </div>
-    <div class="power">
-      <div class="power-led" id="powerLed"></div>
-      <div class="lbl">Active</div>
+    <div class="foot">
+      <button class="footswitch" id="startBtn" aria-label="Start the tuner"></button>
+      <span class="foot-label" id="footLabel" aria-hidden="true">Start</span>
     </div>
-  </div>
+    <div class="mic">
+      <span class="jewel" id="jewel"></span>
+      <span class="deck-label">Mic on</span>
+    </div>
+  </section>
+</main>
 
-  <div class="foot-zone">
-    <button class="footswitch" id="startBtn" aria-label="Start or stop the tuner"></button>
-    <div class="foot-label" id="footLabel">Tap to start</div>
-  </div>
-
-  <div class="status" id="status">Works best in a quiet room. Your sound never leaves this device.</div>
-</div>
-
-<footer>RESONOTE 440 · CHROMATIC PEDAL TUNER<br>Developed by Julio Diaz</footer>
+<p class="status" id="status" role="status">Works best in a quiet room. Your sound never leaves this device.</p>
+<footer>Resonote 440 chromatic pedal tuner<br>Developed by Julio Diaz</footer>
 
 <script>
 (function () {
   "use strict";
 
+  // ---------- settings ----------
+  var A4_MIN = 415, A4_MAX = 466;
+  var IN_TUNE_CENTS = 3;     // inside this, the display turns green
+  var HOLD_MS = 4000;        // keep the last note on screen after the string fades
+  var MIN_HZ = 27, MAX_HZ = 2150;
+  var DEFAULT_STATUS = "Works best in a quiet room. Your sound never leaves this device.";
+
   // ---------- music math ----------
   var NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-  var a4 = 440;
+  var a4 = loadA4();
 
   function freqToNote(freq, refA4) {
     var midiFloat = 69 + 12 * Math.log(freq / refA4) / Math.LN2;
     var midi = Math.round(midiFloat);
-    var cents = (midiFloat - midi) * 100;
-    var targetFreq = refA4 * Math.pow(2, (midi - 69) / 12);
     var idx = ((midi % 12) + 12) % 12;
     return {
       name: NOTE_NAMES[idx],
       octave: Math.floor(midi / 12) - 1,
-      cents: cents,
-      targetFreq: targetFreq,
+      cents: (midiFloat - midi) * 100,
+      targetFreq: midiToFreq(midi, refA4),
       midi: midi
     };
   }
+  function midiToFreq(midi, refA4) { return refA4 * Math.pow(2, (midi - 69) / 12); }
 
-  // ---------- pitch detection (autocorrelation, ACF2+ w/ parabolic interpolation) ----------
-  function detectPitch(buf, sampleRate) {
-    var SIZE = buf.length;
+  /* DETECTOR-START */
+  // ---------- pitch detection ----------
+  // McLeod pitch method. It compares the sound with a shifted copy of itself
+  // and looks for the shift where the two line up best. That shift is one
+  // cycle of the note. "clarity" (0 to 1) says how well they lined up, so
+  // noise and talking can be told apart from a ringing string.
+  function createDetector(sampleRate, size) {
+    var N = size * 2, half = size >> 1, i, j;
+    var re = new Float64Array(N), im = new Float64Array(N), x = new Float64Array(size);
+    var cosT = new Float64Array(N / 2), sinT = new Float64Array(N / 2), rev = new Uint32Array(N);
+    var bits = Math.round(Math.log(N) / Math.LN2);
+    for (i = 0; i < N / 2; i++) { cosT[i] = Math.cos(2 * Math.PI * i / N); sinT[i] = Math.sin(2 * Math.PI * i / N); }
+    for (i = 0; i < N; i++) { var r = 0; for (j = 0; j < bits; j++) r |= ((i >> j) & 1) << (bits - 1 - j); rev[i] = r; }
+    var nsdf = new Float64Array(half + 2);
+    var minLag = Math.max(2, Math.floor(sampleRate / 2200));
+    var maxLag = Math.min(half, Math.ceil(sampleRate / 26));
 
-    var rms = 0, peak = 0;
-    for (var i = 0; i < SIZE; i++) {
-      rms += buf[i] * buf[i];
-      var v = Math.abs(buf[i]);
-      if (v > peak) peak = v;
+    function fft() {
+      var i, j, k, len, h, step, tr, ti, ur, ui, wr, wi;
+      for (i = 0; i < N; i++) {
+        j = rev[i];
+        if (j > i) { tr = re[i]; re[i] = re[j]; re[j] = tr; tr = im[i]; im[i] = im[j]; im[j] = tr; }
+      }
+      for (len = 2; len <= N; len <<= 1) {
+        h = len >> 1; step = N / len;
+        for (i = 0; i < N; i += len) {
+          for (j = 0, k = 0; j < h; j++, k += step) {
+            wr = cosT[k]; wi = -sinT[k];
+            ur = re[i + j]; ui = im[i + j];
+            tr = re[i + j + h] * wr - im[i + j + h] * wi;
+            ti = re[i + j + h] * wi + im[i + j + h] * wr;
+            re[i + j] = ur + tr; im[i + j] = ui + ti;
+            re[i + j + h] = ur - tr; im[i + j + h] = ui - ti;
+          }
+        }
+      }
     }
-    rms = Math.sqrt(rms / SIZE);
-    if (rms < 0.004) return -1; // too quiet
-
-    // trim threshold scales with the signal so a decaying pluck still tracks
-    var thres = peak * 0.3, r1 = 0, r2 = SIZE - 1;
-    for (i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) { r1 = i; } else break;
-    for (i = 1; i < SIZE / 2; i++) if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; } else break;
-    var sliced = buf.slice(r1, r2);
-    SIZE = sliced.length;
-    if (SIZE < 64) return -1;
-
-    var c = new Float32Array(SIZE);
-    for (i = 0; i < SIZE; i++)
-      for (var j = 0; j < SIZE - i; j++)
-        c[i] += sliced[j] * sliced[j + i];
-
-    var d = 0;
-    while (d + 1 < SIZE && c[d] > c[d + 1]) d++;
-    var maxval = -1, maxpos = -1;
-    for (i = d; i < SIZE; i++) {
-      if (c[i] > maxval) { maxval = c[i]; maxpos = i; }
+    // a curve through three points finds the true top between samples
+    function peakAt(t) {
+      var a = nsdf[t - 1], b = nsdf[t], c = nsdf[t + 1], d = a - 2 * b + c;
+      var off = d ? 0.5 * (a - c) / d : 0;
+      return { lag: t + off, val: b - 0.25 * (a - c) * off };
     }
-    var T0 = maxpos;
-    if (T0 <= 0) return -1;
 
-    var x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
-    if (x1 !== undefined && x3 !== undefined) {
-      var a = (x1 + x3 - 2 * x2) / 2;
-      var b = (x3 - x1) / 2;
-      if (a) T0 = T0 - b / (2 * a);
-    }
-    return sampleRate / T0;
+    return function detect(buf) {
+      var i, mean = 0, sq = 0;
+      for (i = 0; i < size; i++) mean += buf[i];
+      mean /= size;
+      for (i = 0; i < size; i++) { x[i] = buf[i] - mean; re[i] = x[i]; im[i] = 0; sq += x[i] * x[i]; }
+      for (i = size; i < N; i++) { re[i] = 0; im[i] = 0; }
+      var rms = Math.sqrt(sq / size);
+      if (rms < 0.0012) return null;   // silence
+
+      // how well the sound matches itself at every shift (done fast with an FFT)
+      fft();
+      for (i = 0; i < N; i++) { re[i] = re[i] * re[i] + im[i] * im[i]; im[i] = 0; }
+      fft();
+      var m = 2 * sq;
+      for (i = 0; i <= half; i++) {
+        nsdf[i] = m > 1e-12 ? 2 * (re[i] / N) / m : 0;
+        m -= x[i] * x[i] + x[size - 1 - i] * x[size - 1 - i];
+      }
+      nsdf[half + 1] = 0;
+
+      // collect the top of every hump after the first dip
+      var t = 1, best = 0, cands = [], pk, pv;
+      while (t < maxLag && nsdf[t] > 0) t++;
+      while (t < maxLag) {
+        while (t < maxLag && nsdf[t] <= 0) t++;
+        pk = -1; pv = 0;
+        while (t < maxLag && nsdf[t] > 0) {
+          if (nsdf[t] > pv && nsdf[t] >= nsdf[t - 1] && nsdf[t] >= nsdf[t + 1]) { pv = nsdf[t]; pk = t; }
+          t++;
+        }
+        if (pk >= minLag) { cands.push(pk); if (pv > best) best = pv; }
+      }
+      if (!cands.length) return null;
+
+      // the first hump that is nearly as tall as the tallest is the real note.
+      // Taking the tallest alone is what causes wrong-octave readings.
+      var pick = cands[0];
+      for (i = 0; i < cands.length; i++) if (nsdf[cands[i]] >= 0.9 * best) { pick = cands[i]; break; }
+      var p = peakAt(pick), lag = p.lag, clarity = p.val;
+
+      // fine tune: measure several cycles at once and divide. A small timing
+      // error spread over 8 cycles is 8 times smaller per cycle.
+      var mult = Math.min(8, Math.floor((half - 2) / lag));
+      for (; mult >= 2; mult--) {
+        var c = Math.round(lag * mult), w = Math.max(1, Math.round(lag * 0.12)), bt = -1, bv = -2;
+        for (i = Math.max(2, c - w); i <= Math.min(half - 1, c + w); i++)
+          if (nsdf[i] > bv) { bv = nsdf[i]; bt = i; }
+        if (bt > 1 && nsdf[bt] >= nsdf[bt - 1] && nsdf[bt] >= nsdf[bt + 1] && bv >= 0.85 * clarity) {
+          lag = peakAt(bt).lag / mult;
+          break;
+        }
+      }
+      return { freq: sampleRate / lag, clarity: clarity, rms: rms };
+    };
   }
+  /* DETECTOR-END */
 
-  window.Resonote = { detectPitch: detectPitch, freqToNote: freqToNote, setA4: function (v) { a4 = v; } };
+  // analysis window: about 0.17 s of sound, rounded up to a power of two
+  function windowSizeFor(sampleRate) {
+    var size = 2048;
+    while (size < sampleRate * 0.15 && size < 32768) size *= 2;
+    return size;
+  }
 
   // ---------- DOM ----------
   var $ = function (id) { return document.getElementById(id); };
-  var startBtn = $("startBtn"), statusEl = $("status"), footLabel = $("footLabel"),
-      noteNameEl = $("noteName"), octaveLedEl = $("octaveLed"), sharpLedEl = $("sharpLed"),
-      noteWindowEl = $("noteWindow"), hintLineEl = $("hintLine"),
+  var glass = $("glass"), startBtn = $("startBtn"), footLabel = $("footLabel"), jewel = $("jewel"),
+      statusEl = $("status"), hintEl = $("hint"), spokenEl = $("spoken"),
+      scaleEl = $("scale"), pointerEl = $("pointer"), strobeBars = $("strobeBars"),
+      flatEnd = $("flatEnd"), sharpEnd = $("sharpEnd"),
       freqValEl = $("freqVal"), targetValEl = $("targetVal"), centsValEl = $("centsVal"),
-      flatArrowEl = $("flatArrow"), sharpArrowEl = $("sharpArrow"),
-      a4ValueEl = $("a4Value"), stringsEl = $("strings"),
-      powerLedEl = $("powerLed"), ledRowEl = $("ledRow");
+      a4ValueEl = $("a4Value"), stringsEl = $("strings"), stringsNote = $("stringsNote");
 
-  // build LED ladder: 21 LEDs, center index 10
-  var LED_COUNT = 21, CENTER = 10, leds = [];
-  for (var li = 0; li < LED_COUNT; li++) {
-    var led = document.createElement("div");
-    led.className = "led" + (li === CENTER ? " center" : "");
-    ledRowEl.appendChild(led);
-    leds.push(led);
+  // cents scale: a tick every 5 cents
+  for (var c5 = -50; c5 <= 50; c5 += 5) {
+    var tick = document.createElement("i");
+    tick.className = "tick" + (c5 === 0 ? " zero" : (c5 % 25 === 0 ? " mid" : ""));
+    tick.style.left = (c5 + 50) + "%";
+    scaleEl.insertBefore(tick, pointerEl);
   }
-  function setLadder(cents, inTune) {
-    var idx = Math.round(cents / 5) + CENTER;
-    idx = Math.max(0, Math.min(LED_COUNT - 1, idx));
-    for (var i = 0; i < LED_COUNT; i++) {
-      var el = leds[i], cls = "led" + (i === CENTER ? " center" : "");
-      if (inTune && i === CENTER) cls += " on-green";
-      else if (!inTune && i === idx) cls += (Math.abs(i - CENTER) >= 7 ? " on-red" : " on-amber");
-      el.className = cls;
+
+  // LED matrix letters, 5 lights wide by 7 tall
+  var GLYPHS = {
+    "A": [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
+    "B": ["####.", "#...#", "#...#", "####.", "#...#", "#...#", "####."],
+    "C": [".###.", "#...#", "#....", "#....", "#....", "#...#", ".###."],
+    "D": ["####.", "#...#", "#...#", "#...#", "#...#", "#...#", "####."],
+    "E": ["#####", "#....", "#....", "####.", "#....", "#....", "#####"],
+    "F": ["#####", "#....", "#....", "####.", "#....", "#....", "#...."],
+    "G": [".###.", "#...#", "#....", "#.###", "#...#", "#...#", ".###."],
+    "-": [".....", ".....", ".....", ".###.", ".....", ".....", "....."],
+    "#": [".#.#.", ".#.#.", "#####", ".#.#.", "#####", ".#.#.", ".#.#."],
+    "0": [".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."],
+    "1": ["..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."],
+    "2": [".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"],
+    "3": [".###.", "#...#", "....#", "..##.", "....#", "#...#", ".###."],
+    "4": ["...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#."],
+    "5": ["#####", "#....", "####.", "....#", "....#", "#...#", ".###."],
+    "6": [".###.", "#....", "#....", "####.", "#...#", "#...#", ".###."],
+    "7": ["#####", "....#", "...#.", "..#..", "..#..", "..#..", "..#.."],
+    "8": [".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."],
+    "9": [".###.", "#...#", "#...#", ".####", "....#", "....#", ".###."]
+  };
+  function makeMatrix(el) {
+    var cells = [];
+    for (var i = 0; i < 35; i++) { var d = document.createElement("i"); el.appendChild(d); cells.push(d); }
+    return { cells: cells, shown: "" };
+  }
+  function setMatrix(mx, ch) {
+    if (mx.shown === ch) return;
+    mx.shown = ch;
+    var g = GLYPHS[ch];
+    for (var i = 0; i < 35; i++)
+      mx.cells[i].className = g && g[(i / 5) | 0].charAt(i % 5) === "#" ? "on" : "";
+  }
+  var mxNote = makeMatrix($("mxNote")), mxSharp = makeMatrix($("mxSharp")), mxOctave = makeMatrix($("mxOctave"));
+
+  // numbers sit in fixed-width slots so they don't wobble while they change
+  function setDigits(el, text) {
+    if (el._text === text) return;
+    el._text = text;
+    var html = "";
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charAt(i);
+      html += '<span class="' + (ch === "." ? "pt" : "dg") + '">' + ch + "</span>";
     }
+    el.innerHTML = html;
   }
-  function clearLadder() {
-    for (var i = 0; i < LED_COUNT; i++)
-      leds[i].className = "led" + (i === CENTER ? " center" : "");
-  }
+  function setText(el, text) { if (el.textContent !== text) el.textContent = text; }
 
-  // guitar string chips (standard tuning, MIDI numbers)
+  // guitar strings, standard tuning (MIDI note numbers)
   var GUITAR = [
-    { label: "E", sub: "6", midi: 40 },
-    { label: "A", sub: "5", midi: 45 },
-    { label: "D", sub: "4", midi: 50 },
-    { label: "G", sub: "3", midi: 55 },
-    { label: "B", sub: "2", midi: 59 },
-    { label: "E", sub: "1", midi: 64 }
+    { label: "E", num: 6, midi: 40 }, { label: "A", num: 5, midi: 45 }, { label: "D", num: 4, midi: 50 },
+    { label: "G", num: 3, midi: 55 }, { label: "B", num: 2, midi: 59 }, { label: "E", num: 1, midi: 64 }
   ];
-  GUITAR.forEach(function (s) {
-    var div = document.createElement("div");
-    div.className = "string-chip";
-    div.dataset.midi = s.midi;
-    div.innerHTML = s.label + "<small>STR " + s.sub + "</small><span class='dot'></span>";
-    stringsEl.appendChild(div);
+  var lockedMidi = null;   // null means automatic: follow whatever note is played
+  var chips = GUITAR.map(function (s) {
+    var b = document.createElement("button");
+    b.className = "string";
+    b.setAttribute("aria-pressed", "false");
+    b.setAttribute("aria-label", "Lock onto string " + s.num + ", " + s.label + (Math.floor(s.midi / 12) - 1));
+    b.innerHTML = "<i class='lamp'></i>" + s.label + "<small>" + s.num + "</small>";
+    b.addEventListener("click", function () { setLock(lockedMidi === s.midi ? null : s.midi); });
+    stringsEl.appendChild(b);
+    return { el: b, s: s };
   });
-  function highlightString(midi) {
-    var chips = stringsEl.children;
-    for (var i = 0; i < chips.length; i++)
-      chips[i].classList.toggle("active", Number(chips[i].dataset.midi) === midi);
+  function setLock(midi) {
+    lockedMidi = midi;
+    var name = "";
+    chips.forEach(function (c) {
+      var on = c.s.midi === midi;
+      c.el.setAttribute("aria-pressed", on ? "true" : "false");
+      if (on) name = c.s.label + (Math.floor(c.s.midi / 12) - 1);
+    });
+    setText(stringsNote, midi === null
+      ? "Tap a string to lock the tuner onto it."
+      : "Locked on " + name + ". Tap again to unlock.");
+    if (shownFreq > 0) repaint();
+    else if (state === "listening") showListening();
+  }
+  function lightString(midi) {
+    for (var i = 0; i < chips.length; i++) chips[i].el.classList.toggle("heard", chips[i].s.midi === midi);
   }
 
-  // ---------- calibration ----------
+  // ---------- A4 reference ----------
+  function loadA4() {
+    try {
+      var v = parseInt(window.localStorage.getItem("resonote.a4"), 10);
+      if (v >= A4_MIN && v <= A4_MAX) return v;
+    } catch (e) { /* storage blocked: just use 440 */ }
+    return 440;
+  }
+  function setA4(v) {
+    v = Math.max(A4_MIN, Math.min(A4_MAX, Math.round(v)));
+    if (v === a4) return;
+    a4 = v;
+    try { window.localStorage.setItem("resonote.a4", String(a4)); } catch (e) { /* ignore */ }
+    renderA4();
+    if (shownFreq > 0) repaint();
+  }
   function renderA4() { a4ValueEl.textContent = String(a4); }
-  $("a4Up").addEventListener("click", function () { if (a4 < 450) { a4++; renderA4(); } });
-  $("a4Down").addEventListener("click", function () { if (a4 > 430) { a4--; renderA4(); } });
+  renderA4();
 
-  // ---------- readout ----------
-  function renderReading(freq) {
-    if (freq <= 0) return;
-    var n = freqToNote(freq, a4);
-    var rounded = Math.round(n.cents);
-    var inTune = Math.abs(n.cents) <= 5;
-
-    noteNameEl.textContent = n.name[0];
-    sharpLedEl.classList.toggle("lit", n.name.length > 1);
-    octaveLedEl.textContent = String(n.octave);
-
-    noteWindowEl.classList.toggle("in-tune", inTune);
-    setLadder(n.cents, inTune);
-    flatArrowEl.classList.toggle("lit", !inTune && rounded < 0);
-    sharpArrowEl.classList.toggle("lit", !inTune && rounded > 0);
-
-    hintLineEl.classList.toggle("good", inTune);
-    hintLineEl.textContent = inTune ? "✓ In tune" : (rounded > 0 ? rounded + " cents sharp — tune down" : (-rounded) + " cents flat — tune up");
-
-    freqValEl.textContent = freq.toFixed(1);
-    targetValEl.textContent = n.targetFreq.toFixed(1);
-    centsValEl.textContent = (rounded > 0 ? "+" : "") + rounded;
-    highlightString(n.midi);
+  // tap for one step, press and hold to run
+  function stepper(btn, dir) {
+    var timer = null;
+    function end() { clearTimeout(timer); timer = null; }
+    function run(delay) { timer = setTimeout(function () { setA4(a4 + dir); run(70); }, delay); }
+    btn.addEventListener("pointerdown", function (e) {
+      if (e.button) return;
+      end(); setA4(a4 + dir); run(450);
+    });
+    ["pointerup", "pointerleave", "pointercancel", "blur"].forEach(function (t) { btn.addEventListener(t, end); });
+    btn.addEventListener("click", function (e) { if (e.detail === 0) setA4(a4 + dir); });  // keyboard
+    btn.addEventListener("contextmenu", function (e) { e.preventDefault(); });
   }
-  function renderSilence() {
-    noteWindowEl.classList.remove("in-tune");
-    flatArrowEl.classList.remove("lit");
-    sharpArrowEl.classList.remove("lit");
-    hintLineEl.classList.remove("good");
-    hintLineEl.textContent = "Listening — pluck a string";
-    clearLadder();
+  stepper($("a4Up"), 1);
+  stepper($("a4Down"), -1);
+
+  // ---------- display ----------
+  var shownFreq = 0;         // the reading on screen, 0 when there is none
+  var targetCents = 0;       // where the pointer is heading
+  var needle = 0;            // where the pointer is right now
+  var strobeX = 0;
+  var inTune = false;
+  var scaleHalf = 0;
+  var lastText = 0, lastSpoken = 0, spokenText = "";
+
+  function measure() { scaleHalf = scaleEl.clientWidth / 2; drawPointer(); }
+  window.addEventListener("resize", measure);
+  function drawPointer() {
+    var x = Math.max(-50, Math.min(50, needle)) / 50 * scaleHalf;
+    pointerEl.style.transform = "translateX(" + x.toFixed(2) + "px)";
   }
-  window.Resonote.renderReading = renderReading;
+  function setMode(mode) { if (glass.dataset.mode !== mode) glass.dataset.mode = mode; }
+  function setTune(on) {
+    inTune = on;
+    var v = on ? "true" : "false";
+    if (glass.dataset.tune !== v) glass.dataset.tune = v;
+  }
+  function fmtHz(f) { return f < 1000 ? f.toFixed(2) : f.toFixed(1); }
+  function fmtCents(c) {
+    var a = Math.abs(c), s = a < 9.95 ? a.toFixed(1) : String(Math.round(a));
+    if (parseFloat(s) === 0) return "0.0";
+    return (c > 0 ? "+" : "−") + s;
+  }
 
-  // ---------- audio pipeline ----------
-  var audioCtx = null, analyser = null, mediaStream = null, rafId = null;
-  var buf = null;
-  var recent = [];
-
-  var HOLD_MS = 4000; // keep the last note on screen after the string fades
-  var lastHeard = 0;
-
-  function loop() {
-    analyser.getFloatTimeDomainData(buf);
-    var freq = detectPitch(buf, audioCtx.sampleRate);
-
-    if (freq > 0 && freq >= 50 && freq <= 2000) {
-      recent.push(freq);
-      if (recent.length > 5) recent.shift();
-      var sorted = recent.slice().sort(function (a, b) { return a - b; });
-      renderReading(sorted[Math.floor(sorted.length / 2)]);
-      lastHeard = performance.now();
-    } else {
-      if (recent.length) recent.shift();
-      if (!recent.length && performance.now() - lastHeard > HOLD_MS) renderSilence();
+  // Put a frequency on the display. "full" also refreshes the slower text parts.
+  function paint(freq, full) {
+    var n = freqToNote(freq, a4), cents = n.cents, target = n.targetFreq, midi = n.midi;
+    if (lockedMidi !== null) {
+      midi = lockedMidi;
+      target = midiToFreq(midi, a4);
+      cents = 1200 * Math.log(freq / target) / Math.LN2;
+      n = freqToNote(target, a4);
     }
-    rafId = requestAnimationFrame(loop);
+    shownFreq = freq;
+    targetCents = cents;
+    setTune(Math.abs(cents) <= (inTune ? IN_TUNE_CENTS + 1 : IN_TUNE_CENTS));
+
+    setMatrix(mxNote, n.name.charAt(0));
+    setMatrix(mxSharp, n.name.length > 1 ? "#" : "");
+    setMatrix(mxOctave, String(n.octave));
+    lightString(midi);
+    flatEnd.classList.toggle("lit", !inTune && cents < 0);
+    sharpEnd.classList.toggle("lit", !inTune && cents > 0);
+
+    if (!full) return;
+    var far = Math.abs(cents) > 50;
+    setText(hintEl, inTune ? "In tune"
+      : cents < 0 ? (far ? "Far too low. Tune up." : "Flat. Tune up.")
+      : (far ? "Far too high. Tune down." : "Sharp. Tune down."));
+    setDigits(freqValEl, fmtHz(freq));
+    setDigits(targetValEl, fmtHz(target));
+    setDigits(centsValEl, fmtCents(cents));
   }
 
+  // redraw the current reading right away, pointer included
+  function repaint() {
+    paint(shownFreq, true);
+    needle = targetCents;
+    drawPointer();
+  }
+
+  // one calm sentence for screen readers, instead of a stream of numbers
+  function speak(now) {
+    if (now - lastSpoken < 2500 || shownFreq <= 0) return;
+    var n = lockedMidi !== null ? freqToNote(midiToFreq(lockedMidi, a4), a4) : freqToNote(shownFreq, a4);
+    var c = Math.round(targetCents);
+    var text = n.name.replace("#", " sharp") + " " + n.octave + ", " +
+      (inTune ? "in tune" : Math.abs(c) + " cents " + (c < 0 ? "flat" : "sharp"));
+    if (text !== spokenText) { spokenText = text; spokenEl.textContent = text; lastSpoken = now; }
+  }
+
+  function blankReadouts() {
+    setDigits(freqValEl, "---.--");
+    setDigits(targetValEl, "---.--");
+    setDigits(centsValEl, "--.-");
+  }
+  function clearReading() {
+    shownFreq = 0; targetCents = 0; needle = 0; spokenText = "";
+    setTune(false);
+    setMatrix(mxSharp, ""); setMatrix(mxOctave, "");
+    lightString(-1);
+    flatEnd.classList.remove("lit"); sharpEnd.classList.remove("lit");
+    blankReadouts();
+    drawPointer();
+  }
+  function showListening() {
+    clearReading();
+    setMode("idle");
+    setMatrix(mxNote, "-");
+    var s = null;
+    chips.forEach(function (c) { if (c.s.midi === lockedMidi) s = c.s; });
+    setText(hintEl, s ? "Listening. Pluck string " + s.num + "." : "Listening. Play a note.");
+  }
+  function showOff() {
+    clearReading();
+    setMode("off");
+    setMatrix(mxNote, "");
+    setText(hintEl, "Tap Start to tune");
+  }
   function setStatus(msg, isError) {
     statusEl.textContent = msg;
     statusEl.classList.toggle("error", !!isError);
   }
 
-  function stop() {
+  // ---------- note tracking ----------
+  // Readings are kept in semitones. A new note must be confirmed by three
+  // readings that agree before it replaces the one on screen, so a single
+  // stray reading can never make the display jump.
+  var recent = [], tracked = null, lastHeard = 0;
+
+  function hear(semi, now, dt) {
+    if (now - lastHeard > 180) { recent.length = 0; tracked = null; }
+    lastHeard = now;
+    recent.push(semi);
+    if (recent.length > 7) recent.shift();
+    var sorted = recent.slice().sort(function (a, b) { return a - b; });
+    var med = sorted[sorted.length >> 1];
+    if (tracked === null || Math.abs(med - tracked) > 0.6) {
+      var agree = 0;
+      for (var i = 0; i < recent.length; i++) if (Math.abs(recent[i] - med) < 0.3) agree++;
+      if (agree < 3) return false;
+      tracked = med;
+    } else {
+      tracked += (med - tracked) * (1 - Math.exp(-dt / 70));   // gentle smoothing
+    }
+    return true;
+  }
+
+  // ---------- audio ----------
+  var state = "off";         // "off" | "starting" | "listening"
+  var startToken = 0;
+  var audioCtx = null, analyser = null, mediaStream = null, detect = null, buf = null;
+  var rafId = null, lastFrame = 0, lastAnalysis = 0, wakeLock = null;
+
+  function frame(now) {
+    rafId = requestAnimationFrame(frame);
+    var dt = Math.min(120, now - lastFrame);
+    lastFrame = now;
+
+    if (now - lastAnalysis >= 28) {
+      var gap = now - lastAnalysis;
+      lastAnalysis = now;
+      analyser.getFloatTimeDomainData(buf);
+      var r = detect(buf), ok = false;
+      if (r && r.freq >= MIN_HZ && r.freq <= MAX_HZ) {
+        var semi = 69 + 12 * Math.log(r.freq / 440) / Math.LN2;
+        // a note already on screen may fade further before we let go of it
+        var following = tracked !== null && Math.abs(semi - tracked) < 1;
+        if (r.clarity >= (following ? 0.8 : 0.9)) ok = hear(semi, now, Math.min(120, gap));
+      }
+      if (ok) {
+        var full = glass.dataset.mode !== "live" || now - lastText >= 110;
+        if (glass.dataset.mode !== "live") { needle = NaN; }   // snap, don't sweep in from the old spot
+        paint(440 * Math.pow(2, (tracked - 69) / 12), full);
+        if (isNaN(needle)) needle = targetCents;
+        if (full) lastText = now;
+        setMode("live");
+        speak(now);
+      } else if (shownFreq > 0) {
+        if (glass.dataset.mode === "live" && now - lastHeard > 250) {
+          setMode("hold");
+          setText(hintEl, "Holding the last note");
+          lightString(-1);
+        }
+        if (now - lastHeard > HOLD_MS) showListening();
+      }
+    }
+    animate(dt);
+  }
+
+  function animate(dt) {
+    if (glass.dataset.mode !== "live") return;
+    needle += (targetCents - needle) * (1 - Math.exp(-dt / 60));
+    drawPointer();
+    // strobe: the further off, the faster it runs. In tune, it stands still.
+    var speed = Math.max(-260, Math.min(260, targetCents * 7));
+    strobeX = (strobeX + speed * dt / 1000) % 22;
+    strobeBars.style.transform = "translateX(" + strobeX.toFixed(2) + "px) skewX(-24deg)";
+  }
+
+  function keepAwake() {
+    if (!("wakeLock" in navigator) || wakeLock) return;
+    navigator.wakeLock.request("screen").then(function (lock) {
+      if (state !== "listening") { lock.release(); return; }
+      wakeLock = lock;
+      lock.addEventListener("release", function () { wakeLock = null; });
+    }).catch(function () { /* not allowed right now: fine */ });
+  }
+
+  function teardown() {
     if (rafId) cancelAnimationFrame(rafId);
     rafId = null;
-    if (mediaStream) mediaStream.getTracks().forEach(function (t) { t.stop(); });
+    if (mediaStream) mediaStream.getTracks().forEach(function (t) { t.onended = null; t.stop(); });
     mediaStream = null;
-    if (audioCtx) audioCtx.close();
-    audioCtx = null;
-    recent = [];
-    startBtn.classList.remove("listening");
-    powerLedEl.classList.remove("on");
-    footLabel.textContent = "Tap to start";
-    noteNameEl.textContent = "-";
-    octaveLedEl.textContent = "";
-    sharpLedEl.classList.remove("lit");
-    noteWindowEl.classList.remove("in-tune");
-    flatArrowEl.classList.remove("lit");
-    sharpArrowEl.classList.remove("lit");
-    hintLineEl.classList.remove("good");
-    hintLineEl.textContent = "Press the footswitch to start";
-    freqValEl.textContent = "---.-";
-    targetValEl.textContent = "---.-";
-    centsValEl.textContent = "--";
-    clearLadder();
-    highlightString(-1);
-    setStatus("Works best in a quiet room. Your sound never leaves this device.");
+    if (audioCtx) { try { audioCtx.close(); } catch (e) { /* already closed */ } }
+    audioCtx = null; analyser = null; detect = null;
+    if (wakeLock) { try { wakeLock.release(); } catch (e) { /* ignore */ } }
+    wakeLock = null;
+    recent.length = 0; tracked = null;
+  }
+
+  function stop(message, isError) {
+    startToken++;
+    teardown();
+    state = "off";
+    startBtn.classList.remove("down");
+    startBtn.setAttribute("aria-label", "Start the tuner");
+    footLabel.textContent = "Start";
+    jewel.classList.remove("on");
+    showOff();
+    setStatus(message || DEFAULT_STATUS, isError);
   }
 
   function start() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setStatus("This browser can't access the microphone. Try Chrome, Edge or Safari over HTTPS.", true);
+    if (state !== "off") return;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setStatus(window.isSecureContext === false
+        ? "The microphone only works on a secure (https) page. Open the https link and try again."
+        : "This browser can't use the microphone. Try a current version of Chrome, Edge, Safari or Firefox.", true);
       return;
     }
-    setStatus("Requesting microphone…");
-    navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-    }).then(function (stream) {
-      mediaStream = stream;
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      var source = audioCtx.createMediaStreamSource(stream);
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 4096;
-      buf = new Float32Array(analyser.fftSize);
-      source.connect(analyser);
+    state = "starting";
+    var token = ++startToken;
+    startBtn.classList.add("down");
+    setText(hintEl, "Allow the microphone");
+    setStatus("Your browser is asking to use the microphone. Choose Allow.");
 
-      startBtn.classList.add("listening");
-      powerLedEl.classList.add("on");
-      footLabel.textContent = "Tap to stop";
-      setStatus("Listening — pluck a string.");
-      hintLineEl.textContent = "Listening — pluck a string";
-      loop();
+    // Made right here, inside the tap, so phones let the audio engine run.
+    audioCtx = new AC();
+    if (audioCtx.state === "suspended") audioCtx.resume().catch(function () {});
+
+    navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }
+    }).then(function (stream) {
+      if (token !== startToken) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+      mediaStream = stream;
+      var track = stream.getAudioTracks()[0];
+      if (track) track.onended = function () { stop("The microphone was disconnected. Tap Start to try again.", true); };
+
+      var rate = audioCtx.sampleRate, size = windowSizeFor(rate);
+      var source = audioCtx.createMediaStreamSource(stream);
+      var highpass = audioCtx.createBiquadFilter();   // removes rumble and handling thumps
+      highpass.type = "highpass"; highpass.frequency.value = 28; highpass.Q.value = 0.707;
+      var lowpass = audioCtx.createBiquadFilter();    // removes hiss the tuner doesn't need
+      lowpass.type = "lowpass"; lowpass.frequency.value = Math.min(4000, rate * 0.4); lowpass.Q.value = 0.707;
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = size;
+      var mute = audioCtx.createGain();               // keeps the chain running without playing sound
+      mute.gain.value = 0;
+      source.connect(highpass); highpass.connect(lowpass); lowpass.connect(analyser);
+      analyser.connect(mute); mute.connect(audioCtx.destination);
+      buf = new Float32Array(size);
+      detect = createDetector(rate, size);
+
+      state = "listening";
+      startBtn.setAttribute("aria-label", "Stop the tuner");
+      footLabel.textContent = "Stop";
+      jewel.classList.add("on");
+      showListening();
+      setStatus("The mic is on. Pluck one string and let it ring.");
+      keepAwake();
+      lastFrame = lastAnalysis = performance.now();
+      rafId = requestAnimationFrame(frame);
     }).catch(function (err) {
-      if (err && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")) {
-        setStatus("Microphone blocked. Tap the 🔒/mic icon in your browser's address bar and allow the microphone, then try again.", true);
-      } else if (err && err.name === "NotFoundError") {
-        setStatus("No microphone found on this device.", true);
-      } else {
-        setStatus("Couldn't start the microphone: " + (err && err.message ? err.message : err), true);
-      }
+      if (token !== startToken) return;
+      var name = err && err.name;
+      stop(
+        name === "NotAllowedError" || name === "PermissionDeniedError" || name === "SecurityError"
+          ? "The microphone is blocked. Tap the lock or mic icon in the address bar, allow the microphone, then tap Start."
+        : name === "NotFoundError" || name === "DevicesNotFoundError" || name === "OverconstrainedError"
+          ? "No microphone was found. Plug one in or check your sound settings, then tap Start."
+        : name === "NotReadableError" || name === "TrackStartError"
+          ? "Another app is using the microphone. Close it, then tap Start."
+        : "The microphone couldn't start" + (err && err.message ? " (" + err.message + ")" : "") + ". Tap Start to try again.",
+        true);
     });
   }
 
   startBtn.addEventListener("click", function () {
-    if (audioCtx) stop(); else start();
+    if (state === "off") start(); else stop();
   });
 
-  window.addEventListener("pagehide", stop);
+  // Coming back to the tab: wake the audio engine. If the browser won't, say so.
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden || state !== "listening" || !audioCtx) return;
+    lastFrame = lastAnalysis = performance.now();
+    keepAwake();
+    if (audioCtx.state !== "running") {
+      var ctx = audioCtx;
+      ctx.resume().catch(function () {});
+      setTimeout(function () {
+        if (audioCtx === ctx && state === "listening" && ctx.state !== "running")
+          stop("The browser paused the microphone. Tap Start to tune again.", true);
+      }, 800);
+    }
+  });
+  window.addEventListener("pagehide", function () { if (state !== "off") stop(); });
+
+  // ---------- first paint ----------
+  showOff();
+  measure();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
+
+  // Small API for the console and for tests.
+  var apiDetectors = {};
+  window.Resonote = {
+    freqToNote: freqToNote,
+    setA4: setA4,
+    createDetector: createDetector,
+    // old-style call: returns the frequency in Hz, or -1 when there is no clear note
+    detectPitch: function (samples, sampleRate) {
+      var size = 1;
+      while (size * 2 <= samples.length) size *= 2;
+      var key = sampleRate + ":" + size;
+      var d = apiDetectors[key] || (apiDetectors[key] = createDetector(sampleRate, size));
+      var r = d(samples);
+      return r && r.clarity >= 0.9 ? r.freq : -1;
+    },
+    // show a frequency on the display without using the microphone
+    renderReading: function (freq) {
+      if (!(freq > 0)) return;
+      shownFreq = freq;
+      repaint();
+      setMode("live");
+    }
+  };
 })();
 </script>
 </body>
